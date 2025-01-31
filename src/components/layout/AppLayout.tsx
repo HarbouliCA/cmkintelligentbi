@@ -2,7 +2,6 @@
 
 import { useSession, signOut } from 'next-auth/react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 
 interface AppLayoutProps {
@@ -27,17 +26,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
             <div className="flex items-center space-x-8">
-              <div className="flex items-center">
-                <Image
-                  src="/images/logoplenya.webp"
-                  alt="Plenya Beauty Logo"
-                  width={40}
-                  height={40}
-                  className="h-10 w-auto"
-                />
-                <h1 className="ml-3 text-2xl font-extrabold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  Plenya Beauty
-                </h1>
+              <div className="flex items-center space-x-2">
+                <Link href="/dashboard" className="flex items-center space-x-2">
+                  <h1 className="text-2xl font-extrabold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent hover:from-purple-500 hover:to-pink-500 transition-colors">
+                    PLENYA BEAUTY
+                  </h1>
+                </Link>
               </div>
               <nav className="hidden sm:flex items-center space-x-1">
                 <Link

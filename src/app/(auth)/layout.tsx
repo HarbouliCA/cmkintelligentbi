@@ -18,14 +18,10 @@ export default async function AuthLayout({
       <div className="container mx-auto px-4 py-8 flex flex-col items-center">
         {/* Logo and Branding */}
         <div className="w-full max-w-md mb-8 text-center">
-          <div className="mb-6 relative w-24 h-24 mx-auto">
-            <Image
-              src="/images/logoplenya.webp"
-              alt="Plenya Beauty Logo"
-              fill
-              className="object-contain"
-              priority
-            />
+          <div className="sm:mx-auto sm:w-full sm:max-w-md">
+            <h1 className="text-3xl font-extrabold text-center bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-6">
+              PLENYA BEAUTY
+            </h1>
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Welcome to Plenya Beauty
