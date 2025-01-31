@@ -1,9 +1,31 @@
 import { NextAuthOptions } from "next-auth";
-import NextAuth from "next-auth/next";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import { compare } from "bcrypt";
+
+// Extend the built-in session types
+declare module "next-auth" {
+  interface Session {
+    user: User & {
+      role?: string;
+    }
+  }
+  interface User {
+    id?: string;
+    role?: string;
+    email?: string | null;
+    name?: string | null;
+    image?: string | null;
+  }
+}
+
+// Extend the built-in JWT types
+declare module "next-auth/jwt" {
+  interface JWT {
+    role?: string;
+  }
+}
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -20,39 +42,30 @@ export const authOptions: NextAuthOptions = {
       name: "credentials",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
+        password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
-          return null;
+          throw new Error('Invalid credentials');
         }
 
         const user = await prisma.user.findUnique({
           where: {
-            email: credentials.email,
-          },
-          select: {
-            id: true,
-            email: true,
-            password: true,
-            name: true,
-            role: true,
-            emailVerified: true,
-          },
+            email: credentials.email
+          }
         });
 
-        if (!user) {
-          return null;
+        if (!user || !user?.password) {
+          throw new Error('Invalid credentials');
         }
 
-        if (!user.password) {
-          return null;
-        }
-
-        const isPasswordValid = await compare(credentials.password, user.password);
+        const isPasswordValid = await compare(
+          credentials.password,
+          user.password
+        );
 
         if (!isPasswordValid) {
-          return null;
+          throw new Error('Invalid credentials');
         }
 
         return {
@@ -61,27 +74,21 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           role: user.role,
         };
-      },
+      }
     }),
   ],
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
         token.role = user.role;
-        token.id = user.id;
       }
       return token;
     },
     async session({ session, token }) {
-      if (token && session.user) {
-        session.user.role = token.role as string;
-        session.user.id = token.id as string;
+      if (session?.user) {
+        session.user.role = token.role;
       }
       return session;
-    },
+    }
   },
 };
-
-const handler = NextAuth(authOptions);
-
-export { handler as GET, handler as POST };
