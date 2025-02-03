@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Link from 'next/link';
+import { signIn } from 'next-auth/react';
 import AppLayout from '@/components/layout/AppLayout';
 
 export default function DashboardPage() {
@@ -51,19 +52,24 @@ export default function DashboardPage() {
                     Analytics
                   </span>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Facebook Insights</h3>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Connect Facebook</h3>
                 <p className="text-gray-600 mb-6">
-                  Track your Facebook page performance and engagement metrics
+                  Connect your Facebook account to enable analytics tracking
                 </p>
-                <Link
-                  href="/facebook-analytics"
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    signIn('facebook', {
+                      callbackUrl: '/facebook-analytics',
+                    });
+                  }}
                   className="inline-flex items-center justify-center w-full px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl shadow-sm hover:from-purple-700 hover:to-purple-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-200"
                 >
-                  View Analytics
+                  Connect Facebook Account
                   <svg className="ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                   </svg>
-                </Link>
+                </button>
               </div>
             </div>
 

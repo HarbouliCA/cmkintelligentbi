@@ -1,6 +1,7 @@
 import { NextAuthOptions } from "next-auth";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import CredentialsProvider from "next-auth/providers/credentials";
+import FacebookProvider from "next-auth/providers/facebook";
 import { prisma } from "@/lib/prisma";
 import { compare } from "bcrypt";
 
@@ -24,6 +25,7 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     role?: string;
+    accessToken?: string;
   }
 }
 
@@ -38,6 +40,16 @@ export const authOptions: NextAuthOptions = {
     error: "/signin",
   },
   providers: [
+    FacebookProvider({
+      clientId: process.env.FACEBOOK_CLIENT_ID!,
+      clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          scope: 'public_profile,email',
+          display: 'popup'
+        }
+      }
+    }),
     CredentialsProvider({
       name: "credentials",
       credentials: {
@@ -78,15 +90,26 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async signIn({ account, profile }) {
+      if (account?.provider === 'facebook') {
+        return true; // Always allow Facebook login
+      }
+      return true; // Default behavior for other providers
+    },
+    async jwt({ token, user, account }) {
       if (user) {
         token.role = user.role;
+      }
+      if (account && account.provider === 'facebook') {
+        token.accessToken = account.access_token;
       }
       return token;
     },
     async session({ session, token }) {
       if (session?.user) {
         session.user.role = token.role;
+        // @ts-ignore
+        session.accessToken = token.accessToken;
       }
       return session;
     }
