@@ -1,18 +1,21 @@
 import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth/next";
+import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 export async function GET() {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
 
-    if (!session) {
+    // Check if user is authenticated and is an admin
+    if (!session?.user?.role || session.user.role !== 'ADMIN') {
       return NextResponse.json(
-        { message: "Unauthorized" },
+        { message: "Unauthorized - Admin access required" },
         { status: 401 }
       );
     }
 
+    // Fetch all users
     const users = await prisma.user.findMany({
       select: {
         id: true,
@@ -20,17 +23,17 @@ export async function GET() {
         email: true,
         role: true,
         emailVerified: true,
-        createdAt: true,
       },
       orderBy: {
-        createdAt: "desc",
+        createdAt: 'desc',
       },
     });
 
     return NextResponse.json(users);
-  } catch (error) {
+  } catch (error: any) {
+    console.error("Error fetching users:", error);
     return NextResponse.json(
-      { message: "Internal server error" },
+      { message: "Error fetching users", error: error.message },
       { status: 500 }
     );
   }

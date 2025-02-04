@@ -4,18 +4,19 @@ const prisma = new PrismaClient();
 
 async function main() {
   const user = await prisma.user.update({
-    where: { email: 'anass@cmk.com' },
-    data: { role: 'ADMIN' },
+    where: { email: 'TaniaRegidot@PLENYABEAUTYCMK.onmicrosoft.com' },
+    data: { 
+      role: 'ADMIN',
+      emailVerified: new Date() // Set email as verified
+    },
   });
-  
-  console.log('User updated:', user);
+  console.log('Updated user:', user);
+  await prisma.$disconnect();
 }
 
 main()
-  .catch((e) => {
+  .catch(async (e) => {
     console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
     await prisma.$disconnect();
+    process.exit(1);
   });

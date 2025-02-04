@@ -3,9 +3,24 @@
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 
+interface FacebookPage {
+  id: string;
+  name: string;
+  category: string;
+  access_token: string;
+  followers_count?: number;
+  fan_count?: number;
+  posts?: any[];
+  insights?: {
+    page_impressions?: number;
+    page_engaged_users?: number;
+    page_post_engagements?: number;
+  };
+}
+
 interface FacebookData {
   name?: string;
-  pages?: any[];
+  pages?: FacebookPage[];
   error?: string;
 }
 
@@ -15,16 +30,13 @@ export default function FacebookAnalyticsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Debug log
-    console.log('Session Data:', session);
-    
     const fetchFacebookData = async () => {
       try {
         if (!session?.accessToken) {
           throw new Error('No Facebook access token available');
         }
 
-        // First, get user data
+        // Get user data
         const userResponse = await fetch('https://graph.facebook.com/v22.0/me', {
           headers: {
             Authorization: `Bearer ${session.accessToken}`,
@@ -36,7 +48,7 @@ export default function FacebookAnalyticsPage() {
           throw new Error(userData.error.message);
         }
 
-        // Then, get pages data
+        // Get pages data
         const pagesResponse = await fetch('https://graph.facebook.com/v22.0/me/accounts', {
           headers: {
             Authorization: `Bearer ${session.accessToken}`,
@@ -48,9 +60,59 @@ export default function FacebookAnalyticsPage() {
           throw new Error(pagesData.error.message);
         }
 
+        // Fetch additional data for each page
+        const pagesWithData = await Promise.all(
+          pagesData.data.map(async (page: FacebookPage) => {
+            // Get page insights
+            const insightsResponse = await fetch(
+              `https://graph.facebook.com/v22.0/${page.id}/insights?metric=page_impressions,page_engaged_users,page_post_engagements&period=day`,
+              {
+                headers: {
+                  Authorization: `Bearer ${page.access_token}`,
+                },
+              }
+            );
+            const insightsData = await insightsResponse.json();
+
+            // Get recent posts
+            const postsResponse = await fetch(
+              `https://graph.facebook.com/v22.0/${page.id}/posts?fields=id,message,created_time,likes.summary(true),comments.summary(true)&limit=5`,
+              {
+                headers: {
+                  Authorization: `Bearer ${page.access_token}`,
+                },
+              }
+            );
+            const postsData = await postsResponse.json();
+
+            // Get page details including followers
+            const pageDetailsResponse = await fetch(
+              `https://graph.facebook.com/v22.0/${page.id}?fields=followers_count,fan_count`,
+              {
+                headers: {
+                  Authorization: `Bearer ${page.access_token}`,
+                },
+              }
+            );
+            const pageDetails = await pageDetailsResponse.json();
+
+            return {
+              ...page,
+              followers_count: pageDetails.followers_count,
+              fan_count: pageDetails.fan_count,
+              posts: postsData.data,
+              insights: {
+                page_impressions: insightsData.data?.[0]?.values?.[0]?.value || 0,
+                page_engaged_users: insightsData.data?.[1]?.values?.[0]?.value || 0,
+                page_post_engagements: insightsData.data?.[2]?.values?.[0]?.value || 0,
+              },
+            };
+          })
+        );
+
         setFacebookData({
           name: userData.name,
-          pages: pagesData.data || [],
+          pages: pagesWithData,
         });
       } catch (error: any) {
         console.error('Facebook API Error:', error);
@@ -165,27 +227,73 @@ export default function FacebookAnalyticsPage() {
             Welcome, {facebookData.name}!
           </h2>
           <p className="mt-4 text-lg text-gray-500">
-            Here are your Facebook Pages:
+            Your Facebook Pages Analytics
           </p>
         </div>
 
-        <div className="mt-12 grid gap-5 max-w-lg mx-auto lg:grid-cols-2 lg:max-w-none">
-          {facebookData.pages?.map((page: any) => (
+        <div className="mt-12 space-y-8">
+          {facebookData.pages?.map((page) => (
             <div
               key={page.id}
-              className="flex flex-col rounded-lg shadow-lg overflow-hidden bg-white"
+              className="bg-white rounded-lg shadow overflow-hidden"
             >
-              <div className="flex-1 p-6">
-                <h3 className="text-xl font-semibold text-gray-900">
+              {/* Page Header */}
+              <div className="px-6 py-5 border-b border-gray-200 bg-gray-50">
+                <h3 className="text-2xl font-semibold text-gray-900">
                   {page.name}
                 </h3>
-                <p className="mt-3 text-base text-gray-500">
+                <p className="mt-1 text-sm text-gray-500">
                   Category: {page.category}
                 </p>
-                <div className="mt-3 flex items-center text-sm text-gray-500">
-                  <span className="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                    {page.access_token ? 'Connected' : 'Not Connected'}
-                  </span>
+              </div>
+
+              {/* Page Stats */}
+              <div className="px-6 py-5 grid grid-cols-1 gap-6 md:grid-cols-4">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-sm font-medium text-gray-500">Followers</p>
+                  <p className="mt-1 text-3xl font-semibold text-gray-900">
+                    {page.followers_count?.toLocaleString() || '0'}
+                  </p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-sm font-medium text-gray-500">Page Likes</p>
+                  <p className="mt-1 text-3xl font-semibold text-gray-900">
+                    {page.fan_count?.toLocaleString() || '0'}
+                  </p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-sm font-medium text-gray-500">Daily Impressions</p>
+                  <p className="mt-1 text-3xl font-semibold text-gray-900">
+                    {page.insights?.page_impressions?.toLocaleString() || '0'}
+                  </p>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-sm font-medium text-gray-500">Daily Engagements</p>
+                  <p className="mt-1 text-3xl font-semibold text-gray-900">
+                    {page.insights?.page_post_engagements?.toLocaleString() || '0'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Recent Posts */}
+              <div className="px-6 py-5 border-t border-gray-200">
+                <h4 className="text-lg font-medium text-gray-900 mb-4">
+                  Recent Posts
+                </h4>
+                <div className="space-y-4">
+                  {page.posts?.map((post: any) => (
+                    <div
+                      key={post.id}
+                      className="bg-gray-50 rounded-lg p-4"
+                    >
+                      <p className="text-gray-900">{post.message || 'No message'}</p>
+                      <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
+                        <span>{new Date(post.created_time).toLocaleDateString()}</span>
+                        <span>• {post.likes?.summary?.total_count || 0} likes</span>
+                        <span>• {post.comments?.summary?.total_count || 0} comments</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
