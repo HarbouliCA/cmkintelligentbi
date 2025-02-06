@@ -14,33 +14,38 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: "/signin",
-    error: "/signin",
+    error: "/facebook-analytics",
   },
   providers: [
     FacebookProvider({
       clientId: process.env.FACEBOOK_CLIENT_ID!,
       clientSecret: process.env.FACEBOOK_CLIENT_SECRET!,
       authorization: {
-        url: "https://www.facebook.com/v22.0/dialog/oauth",
+        url: "https://www.facebook.com/v18.0/dialog/oauth",
         params: {
           scope: [
-            // Default permissions (no review needed)
             "email",
             "public_profile",
             "pages_show_list",
             "pages_read_engagement",
-            
-            // Basic business permissions (no review needed in dev mode)
             "business_management",
             "pages_manage_metadata",
             "pages_manage_posts",
             "pages_messaging",
             "pages_read_user_content"
           ].join(','),
-          config_id: process.env.FACEBOOK_CONFIG_ID,
-          auth_type: "rerequest"
+          display: "popup",
+          response_type: "code"
         }
-      }
+      },
+      profile(profile) {
+        return {
+          id: profile.id,
+          name: profile.name,
+          email: profile.email,
+          image: profile.picture?.data?.url,
+        }
+      },
     }),
     CredentialsProvider({
       name: "credentials",
@@ -93,23 +98,33 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ account, profile }) {
       if (account?.provider === 'facebook') {
-        return true; // Always allow Facebook login
+        try {
+          if (!profile?.email) {
+            throw new Error('No email provided by Facebook');
+          }
+          return true;
+        } catch (error) {
+          console.error('Facebook sign in error:', error);
+          return false;
+        }
       }
-      return true; // Default behavior for other providers
+      return true;
     },
     async jwt({ token, user, account }) {
-      if (user) {
-        token.role = user.role;
-      }
       if (account && account.provider === 'facebook') {
         token.accessToken = account.access_token;
       }
+      if (user) {
+        token.role = user.role;
+      }
       return token;
     },
-    async session({ session, token }) {
-      if (session?.user) {
+    async session({ session, token }: { session: any; token: any }) {
+      if (token) {
         session.user.role = token.role;
-        session.accessToken = token.accessToken;
+        if (token.accessToken) {
+          session.accessToken = token.accessToken;
+        }
       }
       return session;
     },
