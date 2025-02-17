@@ -23,18 +23,9 @@ export const authOptions: NextAuthOptions = {
       authorization: {
         url: "https://www.facebook.com/v18.0/dialog/oauth",
         params: {
-          scope: [
-            "email",
-            "public_profile",
-            "pages_show_list",
-            "pages_read_engagement",
-            "business_management",
-            "pages_manage_metadata",
-            "pages_manage_posts",
-            "pages_messaging",
-            "pages_read_user_content"
-          ].join(','),
+          scope: "email,public_profile,pages_show_list,pages_read_engagement,business_management,pages_manage_metadata,pages_manage_posts,pages_messaging,pages_read_user_content",
           display: "popup",
+          auth_type: "rerequest",
           response_type: "code"
         }
       },
@@ -42,7 +33,7 @@ export const authOptions: NextAuthOptions = {
         return {
           id: profile.id,
           name: profile.name,
-          email: profile.email,
+          email: profile.email || `${profile.id}@facebook.com`,
           image: profile.picture?.data?.url,
         }
       },
@@ -99,9 +90,7 @@ export const authOptions: NextAuthOptions = {
     async signIn({ account, profile }) {
       if (account?.provider === 'facebook') {
         try {
-          if (!profile?.email) {
-            throw new Error('No email provided by Facebook');
-          }
+          // Allow sign in even without email, using Facebook ID as fallback
           return true;
         } catch (error) {
           console.error('Facebook sign in error:', error);
