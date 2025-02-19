@@ -102,7 +102,7 @@ def create_blob_path(campaign_name, adset_name, ad_name):
 def get_last_run_time(state_file=STATE_FILE):
     """
     Reads the last run timestamp from a file.
-    Defaults to 2 days ago if no state is found.
+    Defaults to 48 days ago if no state is found.
     """
     if os.path.exists(state_file):
         try:
@@ -110,8 +110,8 @@ def get_last_run_time(state_file=STATE_FILE):
                 ts = f.read().strip()
                 return datetime.fromisoformat(ts)
         except Exception as e:
-            print(f"Error reading state file, defaulting to 2 days ago: {e}")
-    return datetime.now() - timedelta(days=2)
+            print(f"Error reading state file, defaulting to 48 days ago: {e}")
+    return datetime.now() - timedelta(days=48)
 
 def update_last_run_time(new_time, state_file=STATE_FILE):
     """
@@ -207,8 +207,13 @@ def main():
                             # 4. Get Insights (Ad Level) for the incremental time range
                             insights_endpoint = f"{FACEBOOK_AD_ACCOUNT_ID}/insights"
                             insights_params = {
-                                "fields": "campaign_name,adset_name,ad_name,spend,cpc,cpm,clicks,impressions,reach,frequency,conversions,conversion_values,objective,campaign_id,actions,action_values,dda_results,ctr",
-                                "breakdowns": "age",
+                                "fields": (
+                                    "campaign_name,adset_name,ad_name,spend,cpc,cpm,clicks,"
+                                    "impressions,reach,frequency,conversions,conversion_values,"
+                                    "objective,campaign_id,actions,action_values,dda_results,ctr,"
+                                    "date_start,date_stop,account_currency"
+                                ),
+                                "breakdowns": "age,gender",
                                 "time_range": json.dumps({"since": start_date_str, "until": end_date_str}),
                                 "level": "ad",
                             }
