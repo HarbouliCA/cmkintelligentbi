@@ -32,7 +32,7 @@ def get_facebook_data(endpoint, params=None):
         params["access_token"] = FACEBOOK_ACCESS_TOKEN
         response = requests.get(url, params=params)
         response.raise_for_status()
-        return response.json()
+        return json.loads(response.text)
     except requests.exceptions.RequestException as e:
         print(f"Erreur API Facebook: {str(e)}")
         return None

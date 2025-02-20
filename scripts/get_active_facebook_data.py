@@ -279,7 +279,7 @@ def main():
 
     # Calculate incremental time range
     last_run_time = get_last_run_time()
-    start_date = last_run_time - timedelta(days=OVERLAP_DAYS)
+    start_date = datetime(2025, 1, 1)
     end_date = datetime.now()
     start_date_str = start_date.strftime("%Y-%m-%d")
     end_date_str = end_date.strftime("%Y-%m-%d")
@@ -295,16 +295,18 @@ def main():
 
     if campaigns_data and "data" in campaigns_data:
         for campaign in campaigns_data["data"]:
+            if campaign.get('status') != 'ACTIVE':
+                continue
             campaign_name = campaign["name"].replace("/", "_")
             print(f"Processing campaign: {campaign_name} ({campaign['id']})")
             campaign_df = transformer.transform_campaign(campaign)
             transformer.campaigns_df = pd.concat([transformer.campaigns_df, campaign_df], ignore_index=True)
-            
+
             # 2. Get AdSets for the campaign (including targeting info)
             adsets_endpoint = f"{campaign['id']}/adsets"
             adsets_params = {"fields": "id,name,targeting"}
             adsets_data = get_facebook_data(adsets_endpoint, adsets_params)
-            
+
             if adsets_data is None:
                 # If adsets API call fails after max retries, add campaign to the queue and skip further processing.
                 print(f"Failed to retrieve adsets for campaign: {campaign_name} ({campaign['id']}). Adding to queue for later processing.")
@@ -322,19 +324,19 @@ def main():
                     targeting = adset.get("targeting", {})
                     targeting_df = transformer.transform_targeting(targeting, adset["id"])
                     transformer.targeting_df = pd.concat([transformer.targeting_df, targeting_df], ignore_index=True)
-                    
+
                     # 3. Get Ads for the adset
                     ads_endpoint = f"{adset['id']}/ads"
                     ads_params = {"fields": "id,name,effective_status"}
                     ads_data = get_facebook_data(ads_endpoint, ads_params)
-                    
+
                     if ads_data and "data" in ads_data:
                         for ad in ads_data["data"]:
                             ad_name = ad["name"].replace("/", "_")
                             print(f"    Processing ad: {ad_name} ({ad['id']}) - Status: {ad.get('effective_status', 'unknown')}")
                             ad_df = transformer.transform_ad(ad, adset["id"])
                             transformer.ads_df = pd.concat([transformer.ads_df, ad_df], ignore_index=True)
-                            
+
                             # 4. Get Insights for the ad (for the incremental time range)
                             insights_endpoint = f"{ad['id']}/insights"
                             insights_params = {
@@ -349,13 +351,13 @@ def main():
                                 "level": "ad",
                             }
                             insights_data = get_facebook_data(insights_endpoint, insights_params)
-                            
+
                             if insights_data and "data" in insights_data:
                                 insights_df = transformer.transform_insights(insights_data, ad["id"])
                                 transformer.insights_df = pd.concat([transformer.insights_df, insights_df], ignore_index=True)
                             else:
                                 print(f"    No insights data found for ad: {ad_name} ({ad['id']})")
-                            
+
                             time.sleep(DEFAULT_SLEEP)
                     else:
                         print(f"  No ads found for adset: {adset_name} ({adset['id']})")
@@ -364,8 +366,8 @@ def main():
     else:
         print("No campaigns found.")
 
-    # Upload all DataFrames as CSV files to Azure Blob Storage under the "csv" folder.
-    folder_name = datetime.now().strftime("%Y-%m-%d")
+# Upload all DataFrames as CSV files to Azure Blob Storage under the "csv" folder.
+    folder_name = "api"
     tables = {
         'campaigns': transformer.campaigns_df,
         'adsets': transformer.adsets_df,
@@ -374,7 +376,7 @@ def main():
         'actions': transformer.actions_df,
         'targeting': transformer.targeting_df
     }
-    
+
     for table_name, df in tables.items():
         if not df.empty:
             upload_dataframe_to_blob(df, table_name, folder_name)
