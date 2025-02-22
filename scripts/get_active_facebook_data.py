@@ -349,7 +349,10 @@ def main():
                                 "breakdowns": "age,gender",
                                 "time_range": json.dumps({"since": start_date_str, "until": end_date_str}),
                                 "level": "ad",
+<<<<<<< HEAD
 				
+=======
+>>>>>>> c3d19e16c0c264e1f995ba30bf58f62f0d114068
                             }
                             insights_data = get_facebook_data(insights_endpoint, insights_params)
 

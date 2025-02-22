@@ -68,7 +68,23 @@ const PowerBIReport = ({ embedConfig }) => {
       });
 
       const report = powerbiInstance.instance.embed(reportRef.current, config);
-
+      report.on('loaded', async () => {
+        try {
+          const pages = await report.getPages();
+          console.log('Pages disponibles:', pages);
+          
+          // Optionnel : Définir la première page active
+          if (pages && pages.length > 0) {
+            await pages[0].setActive();
+          }
+          
+          setIsLoading(false);
+        } catch (err) {
+          console.error('Erreur lors du chargement des pages:', err);
+          setError(err);
+        }
+      });
+      
       report.on('loaded', () => {
         console.log('Rapport chargé avec succès');
         setIsLoading(false);
