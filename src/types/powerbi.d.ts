@@ -6,13 +6,13 @@ interface PowerBIEmbed {
 
 declare global {
   interface Window {
-    powerbi: PowerBIInstance;
+    powerbi: any;
   }
 }
 
 export interface PowerBIInstance {
   embed: (element: HTMLElement, config: any) => any;
-  reset: () => void;
+  reset: (element: HTMLElement) => void;
 }
 
 export {};

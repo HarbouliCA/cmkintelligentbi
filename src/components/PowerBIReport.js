@@ -1,97 +1,129 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 
 const PowerBIReport = ({ embedConfig }) => {
   const reportRef = useRef(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [powerbiInstance, setPowerbiInstance] = useState(null);
 
   useEffect(() => {
-    let embedAttempts = 0;
-    const maxAttempts = 3;
-
-    const embedReport = async () => {
-      if (typeof window === 'undefined') return;
-
-      if (!window.powerbi) {
-        console.log('Waiting for Power BI SDK...');
-        if (embedAttempts < maxAttempts) {
-          embedAttempts++;
-          setTimeout(embedReport, 1000);
-        }
-        return;
-      }
-
-      if (!reportRef.current || !embedConfig) {
-        console.error('Missing required configuration:', { 
-          reportContainer: !!reportRef.current, 
-          embedConfig: !!embedConfig 
-        });
-        return;
-      }
-
+    const loadPowerBI = async () => {
       try {
-        console.log('Embedding report with config:', embedConfig);
-
-        const report = window.powerbi.embed(reportRef.current, {
-          type: 'report',
-          tokenType: 'Embed',
-          accessToken: embedConfig.accessToken,
-          embedUrl: embedConfig.embedUrl,
-          id: embedConfig.id,
-          permissions: 'View',
-          settings: {
-            filterPaneEnabled: false,
-            navContentPaneEnabled: false,
-          }
-        });
-
-        report.on('loaded', () => {
-          console.log('Report loaded successfully');
-        });
-
-        report.on('error', (event) => {
-          console.error('Error loading report:', event.detail);
-        });
-
-        return () => {
-          report.off('loaded');
-          report.off('error');
-          if (reportRef.current) {
-            window.powerbi.reset(reportRef.current);
-          }
-        };
-      } catch (error) {
-        console.error('Error embedding report:', error);
+        // Import dynamique de powerbi-client
+        const { models } = await import('powerbi-client');
+        
+        if (window.powerbi) {
+          setPowerbiInstance({
+            instance: window.powerbi,
+            models: models
+          });
+        } else {
+          const handlePowerBILoaded = async () => {
+            setPowerbiInstance({
+              instance: window.powerbi,
+              models: models
+            });
+          };
+          window.addEventListener('powerbiLoaded', handlePowerBILoaded);
+          return () => window.removeEventListener('powerbiLoaded', handlePowerBILoaded);
+        }
+      } catch (err) {
+        console.error('Erreur lors du chargement de Power BI:', err);
+        setError(err);
       }
     };
 
-    embedReport();
-  }, [embedConfig]);
+    loadPowerBI();
+  }, []);
+
+  useEffect(() => {
+    if (!powerbiInstance?.instance || !embedConfig || !reportRef.current) {
+      return;
+    }
+
+    try {
+      // Reset conteneur
+      powerbiInstance.instance.reset(reportRef.current);
+
+      const config = {
+        type: 'report',
+        tokenType: powerbiInstance.models.TokenType.Embed,
+        accessToken: embedConfig.accessToken,
+        embedUrl: embedConfig.embedUrl,
+        id: embedConfig.reportId,
+        permissions: powerbiInstance.models.Permissions.All,
+        settings: {
+          filterPaneEnabled: false,
+          navContentPaneEnabled: false,
+        }
+      };
+
+      console.log('Configuration d\'intégration:', {
+        type: config.type,
+        id: config.id,
+        embedUrl: config.embedUrl
+      });
+
+      const report = powerbiInstance.instance.embed(reportRef.current, config);
+
+      report.on('loaded', () => {
+        console.log('Rapport chargé avec succès');
+        setIsLoading(false);
+      });
+
+      report.on('error', (event) => {
+        console.error('Erreur de chargement du rapport:', event.detail);
+        setError(event.detail);
+        setIsLoading(false);
+      });
+
+      return () => {
+        report.off('loaded');
+        report.off('error');
+        powerbiInstance.instance.reset(reportRef.current);
+      };
+    } catch (err) {
+      console.error('Erreur lors de l\'intégration:', err);
+      setError(err);
+      setIsLoading(false);
+    }
+  }, [powerbiInstance, embedConfig]);
 
   return (
-    <div
-      ref={reportRef}
-      style={{
-        height: '600px',
-        width: '100%',
-        border: '1px solid #ccc',
-        borderRadius: '8px',
-        position: 'relative'
-      }}
-    >
-      <div 
-        style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)'
-        }}
-      >
-        Chargement du rapport...
-      </div>
+    <div className="relative w-full h-[600px]">
+      <div
+        ref={reportRef}
+        className="w-full h-full rounded-lg overflow-hidden shadow-lg"
+      />
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75">
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+            <p className="mt-4 text-gray-600">Chargement du rapport...</p>
+          </div>
+        </div>
+      )}
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75">
+          <div className="text-red-600">
+            Une erreur s'est produite lors du chargement du rapport.
+            <br />
+            {error.message || 'Veuillez réessayer plus tard.'}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default dynamic(() => Promise.resolve(PowerBIReport), { ssr: false });
+export default dynamic(() => Promise.resolve(PowerBIReport), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-[600px] flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+    </div>
+  )
+});

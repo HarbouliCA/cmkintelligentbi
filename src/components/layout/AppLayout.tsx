@@ -1,28 +1,47 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Script from 'next/script';
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
+  const [isPowerBILoaded, setIsPowerBILoaded] = useState(false);
+
   useEffect(() => {
-    // Vérification du chargement du script Power BI
-    if (typeof window !== 'undefined') {
-      console.log('Power BI SDK Status:', !!window.powerbi);
+    const checkPowerBI = () => {
+      if (typeof window !== 'undefined' && window.powerbi) {
+        console.log('Power BI SDK is now available');
+        setIsPowerBILoaded(true);
+        return true;
+      }
+      return false;
+    };
+
+    if (!checkPowerBI()) {
+      const interval = setInterval(() => {
+        if (checkPowerBI()) {
+          clearInterval(interval);
+        }
+      }, 100);
+
+      return () => clearInterval(interval);
     }
   }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <Script
-        src="https://cdn.jsdelivr.net/npm/powerbi-client@2.23.7/dist/powerbi.min.js"
-        strategy="afterInteractive"
+        src="https://cdn.jsdelivr.net/npm/powerbi-client/dist/powerbi.min.js"
+        strategy="beforeInteractive"
         onLoad={() => {
           console.log('Power BI script loaded successfully');
-          window.dispatchEvent(new Event('powerbiLoaded'));
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('powerbiLoaded'));
+          }
         }}
         onError={(e) => {
           console.error('Error loading Power BI script:', e);
         }}
       />
+
       <header className="bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
