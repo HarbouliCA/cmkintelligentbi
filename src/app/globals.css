@@ -35,3 +35,25 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+/* Styles pour Power BI Report */
+.powerbi-report-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.powerbi-report-container iframe {
+  border: none;
+  width: 100%;
+  height: 100%;
+}
+
+.powerbi-report-container .nav-pane {
+  background-color: rgba(255, 255, 255, 0.95);
+  border-right: 1px solid #e5e7eb;
+}
+
+/* Style pour masquer le watermark de démo */
+.powerbi-report-container .watermark {
+  display: none !important;
+}

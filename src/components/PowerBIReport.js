@@ -12,23 +12,12 @@ const PowerBIReport = ({ embedConfig }) => {
   useEffect(() => {
     const loadPowerBI = async () => {
       try {
-        // Import dynamique de powerbi-client
         const { models } = await import('powerbi-client');
-        
         if (window.powerbi) {
           setPowerbiInstance({
             instance: window.powerbi,
             models: models
           });
-        } else {
-          const handlePowerBILoaded = async () => {
-            setPowerbiInstance({
-              instance: window.powerbi,
-              models: models
-            });
-          };
-          window.addEventListener('powerbiLoaded', handlePowerBILoaded);
-          return () => window.removeEventListener('powerbiLoaded', handlePowerBILoaded);
         }
       } catch (err) {
         console.error('Erreur lors du chargement de Power BI:', err);
@@ -45,7 +34,7 @@ const PowerBIReport = ({ embedConfig }) => {
     }
 
     try {
-      // Reset conteneur
+      // Reset le conteneur
       powerbiInstance.instance.reset(reportRef.current);
 
       const config = {
@@ -56,8 +45,19 @@ const PowerBIReport = ({ embedConfig }) => {
         id: embedConfig.reportId,
         permissions: powerbiInstance.models.Permissions.All,
         settings: {
-          filterPaneEnabled: false,
-          navContentPaneEnabled: false,
+          filterPaneEnabled: true,
+          navContentPaneEnabled: true,
+          background: powerbiInstance.models.BackgroundType.Transparent,
+          panes: {
+            filters: {
+              expanded: false,
+              visible: true
+            },
+            pageNavigation: {
+              visible: true
+              // Suppression de la position qui causait l'erreur
+            }
+          }
         }
       };
 
@@ -68,12 +68,12 @@ const PowerBIReport = ({ embedConfig }) => {
       });
 
       const report = powerbiInstance.instance.embed(reportRef.current, config);
+
       report.on('loaded', async () => {
         try {
           const pages = await report.getPages();
           console.log('Pages disponibles:', pages);
           
-          // Optionnel : Définir la première page active
           if (pages && pages.length > 0) {
             await pages[0].setActive();
           }
@@ -83,11 +83,6 @@ const PowerBIReport = ({ embedConfig }) => {
           console.error('Erreur lors du chargement des pages:', err);
           setError(err);
         }
-      });
-      
-      report.on('loaded', () => {
-        console.log('Rapport chargé avec succès');
-        setIsLoading(false);
       });
 
       report.on('error', (event) => {
@@ -99,7 +94,9 @@ const PowerBIReport = ({ embedConfig }) => {
       return () => {
         report.off('loaded');
         report.off('error');
-        powerbiInstance.instance.reset(reportRef.current);
+        if (powerbiInstance?.instance) {
+          powerbiInstance.instance.reset(reportRef.current);
+        }
       };
     } catch (err) {
       console.error('Erreur lors de l\'intégration:', err);
@@ -109,7 +106,7 @@ const PowerBIReport = ({ embedConfig }) => {
   }, [powerbiInstance, embedConfig]);
 
   return (
-    <div className="relative w-full h-[600px]">
+    <div className="relative w-full h-[800px]">
       <div
         ref={reportRef}
         className="w-full h-full rounded-lg overflow-hidden shadow-lg"
@@ -136,10 +133,5 @@ const PowerBIReport = ({ embedConfig }) => {
 };
 
 export default dynamic(() => Promise.resolve(PowerBIReport), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-[600px] flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-    </div>
-  )
+  ssr: false
 });

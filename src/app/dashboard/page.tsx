@@ -38,8 +38,8 @@ export default function DashboardPage() {
           embedUrl: data.embedUrl,
           id: data.reportId,
           settings: {
-            navContentPaneEnabled: false,
-            filterPaneEnabled: false,
+            navContentPaneEnabled: true, // Changé à true
+            filterPaneEnabled: true,     // Changé à true
           },
         });
       }
