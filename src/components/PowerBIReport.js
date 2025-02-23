@@ -2,12 +2,29 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { useSession } from 'next-auth/react';
+import PowerBILogin from './PowerBILogin';
 
 const PowerBIReport = ({ embedConfig }) => {
+  const { data: session, status } = useSession();
   const reportRef = useRef(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [powerbiInstance, setPowerbiInstance] = useState(null);
+
+  // Vérifier si l'utilisateur est authentifié avec Power BI
+  if (!session?.powerbiToken) {
+    return <PowerBILogin />;
+  }
+
+   // Si en cours de chargement de la session
+   if (status === 'loading') {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     const loadPowerBI = async () => {

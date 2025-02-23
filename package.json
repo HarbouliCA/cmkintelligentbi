@@ -9,6 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@auth/core": "^0.37.4",
+    "@azure/msal-browser": "^4.4.0",
+    "@azure/msal-node": "^3.2.3",
     "@azure/storage-blob": "^12.26.0",
     "@hookform/resolvers": "^3.3.4",
     "@next-auth/prisma-adapter": "^1.0.7",

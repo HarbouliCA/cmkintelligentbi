@@ -2,9 +2,10 @@
 
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import PowerBIReport from '@/components/PowerBIReport';
+import PowerBILogin from '@/components/PowerBILogin';
 
 interface PowerBIEmbedConfiguration {
   type: 'report';
@@ -19,16 +20,34 @@ interface PowerBIEmbedConfiguration {
 }
 
 export default function DashboardPage() {
-  const { status } = useSession();
+  const { data: session, status } = useSession();
   const router = useRouter();
   const [embedConfig, setEmbedConfig] = useState<PowerBIEmbedConfiguration | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchEmbedConfig = async () => {
     try {
-      const response = await fetch('/api/admin/generateEmbedToken');
+      if (!session?.powerbiToken) {
+        setError('Token Power BI non trouvé');
+        return;
+      }
+
+      const response = await fetch('/api/admin/generateEmbedToken', {
+        headers: {
+          'Authorization': `Bearer ${session.powerbiToken}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+
       const data = await response.json();
-      
       console.log('API Response:', data);
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
 
       if (data.accessToken && data.embedUrl && data.reportId) {
         setEmbedConfig({
@@ -38,23 +57,25 @@ export default function DashboardPage() {
           embedUrl: data.embedUrl,
           id: data.reportId,
           settings: {
-            navContentPaneEnabled: true, // Changé à true
-            filterPaneEnabled: true,     // Changé à true
+            navContentPaneEnabled: true,
+            filterPaneEnabled: true,
           },
         });
+        setError(null);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching embed configuration:', error);
+      setError(error.message || 'Une erreur est survenue lors du chargement du rapport');
     }
   };
 
   useEffect(() => {
-    if (status === 'authenticated') {
+    if (status === 'authenticated' && session?.powerbiToken) {
       fetchEmbedConfig();
     } else if (status === 'unauthenticated') {
       router.push('/signin');
     }
-  }, [status, router]);
+  }, [status, session, router]);
 
   if (status === 'loading') {
     return (
@@ -62,6 +83,11 @@ export default function DashboardPage() {
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
       </div>
     );
+  }
+
+  // Si l'utilisateur n'est pas authentifié avec Power BI
+  if (status === 'authenticated' && !session?.powerbiToken) {
+    return <PowerBILogin />;
   }
 
   return (
@@ -72,6 +98,11 @@ export default function DashboardPage() {
             <h2 className="text-3xl font-extrabold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
               Power BI Dashboard
             </h2>
+            {error && (
+              <div className="mt-4 text-red-600 text-sm">
+                {error}
+              </div>
+            )}
           </div>
           {embedConfig ? (
             <PowerBIReport embedConfig={embedConfig} />

@@ -1,66 +1,58 @@
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../../auth/[...nextauth]/route";
 import axios from 'axios';
 
-const TENANT_ID = process.env.POWERBI_TENANT_ID;
-const CLIENT_ID = process.env.POWERBI_CLIENT_ID;
-const CLIENT_SECRET = process.env.POWERBI_CLIENT_SECRET;
-const GROUP_ID = process.env.NEXT_PUBLIC_POWERBI_GROUP_ID;
-const REPORT_ID = process.env.NEXT_PUBLIC_POWERBI_REPORT_ID;
-
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    console.log('Generating embed token...');
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.powerbiToken) {
+      return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
+    }
 
-    // 1. Get the access token from Azure AD
-    const tokenResponse = await axios.post(
-      `https://login.microsoftonline.com/${TENANT_ID}/oauth2/v2.0/token`,
-      new URLSearchParams({
-        grant_type: 'client_credentials',
-        client_id: CLIENT_ID ?? '',
-        client_secret: CLIENT_SECRET ?? '',
-        scope: 'https://analysis.windows.net/powerbi/api/.default'
-      }).toString(),
-      { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-    );
-    const accessToken = tokenResponse.data.access_token;
+    const accessToken = session.powerbiToken;
+    
+    const POWERBI_API_URL = "https://api.powerbi.com/v1.0/myorg";
+    const GROUP_ID = process.env.NEXT_PUBLIC_POWERBI_GROUP_ID;
+    const REPORT_ID = process.env.NEXT_PUBLIC_POWERBI_REPORT_ID;
 
-    // 2. Get the report details using the group endpoint
     const reportResponse = await axios.get(
-      `https://api.powerbi.com/v1.0/myorg/groups/${GROUP_ID}/reports/${REPORT_ID}`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
-
-    // 3. Generate the embed token using the group endpoint
-    const embedTokenResponse = await axios.post(
-      `https://api.powerbi.com/v1.0/myorg/groups/${GROUP_ID}/reports/${REPORT_ID}/GenerateToken`,
-      { accessLevel: 'view' },
+      `${POWERBI_API_URL}/groups/${GROUP_ID}/reports/${REPORT_ID}`,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
-        }
+        },
       }
     );
 
-    console.log('Embed token and URL generated successfully:', {
-      embedUrl: reportResponse.data.embedUrl,
-      reportId: REPORT_ID
-    });
+    const embedTokenResponse = await axios.post(
+      `${POWERBI_API_URL}/groups/${GROUP_ID}/reports/${REPORT_ID}/GenerateToken`,
+      {
+        accessLevel: 'View',
+        allowSaveAs: false
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+      }
+    );
 
     return NextResponse.json({
       accessToken: embedTokenResponse.data.token,
       embedUrl: reportResponse.data.embedUrl,
       reportId: REPORT_ID
     });
+
   } catch (error: any) {
-    console.error('Error fetching Power BI Embed Token:', {
-      statusCode: error.response?.status,
-      errorInfo: error.response?.data,
-      message: error.message
-    });
+    console.error('Erreur de génération du token:', error);
+    
     return NextResponse.json(
       { 
-        error: 'Failed to generate embed token',
+        error: 'Échec de génération du token d\'intégration',
         details: error.response?.data || error.message
       }, 
       { status: error.response?.status || 500 }
